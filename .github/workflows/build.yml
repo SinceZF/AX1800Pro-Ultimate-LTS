@@ -21,7 +21,7 @@ jobs:
       run: |
         git clone https://github.com/immortalwrt/immortalwrt -b openwrt-23.05 openwrt
         cd openwrt
-        git checkout 8f3c7c1b5a2d6e4c9b123456789abcdef12345678
+        git checkout openwrt-23.05
         ./scripts/feeds update -a
         ./scripts/feeds install -a
 
