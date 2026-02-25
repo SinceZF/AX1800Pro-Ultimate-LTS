@@ -19,7 +19,8 @@ jobs:
 
     - name: Clone Source
   run: |
-    git clone https://github.com/immortalwrt/immortalwrt -b openwrt-23.05 openwrt
+    git clone https://github.com/immortalwrt/immortalwrt -b 
+    openwrt-23.05 openwrt
     cd openwrt
     ./scripts/feeds update -a
     ./scripts/feeds install -a
