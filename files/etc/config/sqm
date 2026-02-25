@@ -1,0 +1,7 @@
+config queue
+        option interface 'pppoe-wan'
+        option download '950000'
+        option upload '950000'
+        option qdisc 'cake'
+        option script 'piece_of_cake.qos'
+        option enabled '1'
