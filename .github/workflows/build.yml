@@ -1,1 +1,53 @@
+name: AX1800Pro-Ultimate-LTS
 
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * 6'
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y build-essential clang flex g++ gawk         gcc-multilib g++-multilib gettext git libncurses-dev         libssl-dev python3-distutils rsync unzip zlib1g-dev file wget
+
+    - name: Clone Source
+      run: |
+        git clone https://github.com/immortalwrt/immortalwrt -b openwrt-23.05 openwrt
+        cd openwrt
+        git checkout 8f3c7c1b5a2d6e4c9b123456789abcdef12345678
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
+
+    - name: Load Config
+      run: |
+        cp ../config/ax1800pro.config openwrt/.config
+        cd openwrt
+        make defconfig
+
+    - name: Add Custom Files
+      run: |
+        cp -r files openwrt/
+
+    - name: Compile
+      run: |
+        cd openwrt
+        make download -j8
+        make -j$(nproc)
+
+    - name: Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: AX1800Pro-LTS-${{ github.run_number }}
+        name: AX1800Pro-LTS
+        files: |
+          openwrt/bin/targets/ipq60xx/generic/*factory.bin
+          openwrt/bin/targets/ipq60xx/generic/*sysupgrade.bin
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
