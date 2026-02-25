@@ -1,0 +1,10 @@
+config wifi-device 'radio0'
+        option type 'mac80211'
+        option channel 'auto'
+
+config wifi-iface
+        option device 'radio0'
+        option mode 'ap'
+        option ssid 'shop120267969.taobao.com'
+        option encryption 'psk2'
+        option key '12345678'
