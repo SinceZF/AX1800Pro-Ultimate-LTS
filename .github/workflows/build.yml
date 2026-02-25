@@ -1,15 +1,28 @@
-name: OpenWrt-23.05-360V6-Stable
+name: 360V6-ImmortalWrt-23.05-Stable
 
 on:
   workflow_dispatch:
 
+env:
+  REPO_URL: https://github.com/immortalwrt/immortalwrt.git
+  REPO_TAG: v23.05.3
+  DEVICE: 360v6
+
 jobs:
   build:
     runs-on: ubuntu-22.04
+    timeout-minutes: 360
 
     steps:
-    - name: Checkout
+
+    - name: Checkout Workflow Repo
       uses: actions/checkout@v4
+
+    - name: Free Disk Space
+      run: |
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /usr/local/lib/android
+        sudo docker image prune -af
 
     - name: Install Dependencies
       run: |
@@ -18,11 +31,11 @@ jobs:
         gcc-multilib g++-multilib gettext git libncurses-dev libssl-dev \
         python3 rsync unzip zlib1g-dev file wget libelf-dev
 
-    - name: Clone OpenWrt 23.05.3
+    - name: Clone ImmortalWrt (Locked)
       run: |
-        git clone https://github.com/openwrt/openwrt.git
+        git clone $REPO_URL openwrt
         cd openwrt
-        git checkout v23.05.3
+        git checkout $REPO_TAG
 
     - name: Update Feeds
       run: |
@@ -41,18 +54,34 @@ jobs:
         cd openwrt
         make download -j8
 
-    - name: Compile
+    - name: Compile Firmware
       run: |
         cd openwrt
-        make -j$(nproc)
+        make -j$(nproc) || make -j1 V=s
 
     - name: Save Firmware
       run: |
         mkdir firmware
-        find openwrt/bin/targets/ -type f -name "*.bin" -exec cp {} firmware/ \;
+        find openwrt/bin/targets/ -type f -name "*$DEVICE*.bin" -exec cp {} firmware/ \;
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: OpenWrt-360V6-Stable
+        name: 360V6-Firmware
         path: firmware/
+        retention-days: 7
+
+    - name: Auto Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: 360V6-23.05-Stable
+        name: 360V6-ImmortalWrt-23.05-Stable
+        files: firmware/*.bin
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Cleanup Old Artifacts
+      uses: kolpav/purge-artifacts-action@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        expire-in: 7days
