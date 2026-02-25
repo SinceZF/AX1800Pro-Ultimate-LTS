@@ -1,0 +1,7 @@
+filters:
+  - enabled: true
+    url: https://anti-ad.net/easylist.txt
+  - enabled: true
+    url: https://adrules.top/easylist.txt
+  - enabled: true
+    url: https://raw.githubusercontent.com/xinggsf/Adblock-Plus-Rule/master/mv.txt

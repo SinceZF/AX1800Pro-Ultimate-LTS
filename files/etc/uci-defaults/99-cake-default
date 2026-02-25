@@ -1,0 +1,9 @@
+#!/bin/sh
+uci set sqm.@queue[0].enabled='1'
+uci set sqm.@queue[0].interface='pppoe-wan'
+uci set sqm.@queue[0].download='285000'
+uci set sqm.@queue[0].upload='285000'
+uci set sqm.@queue[0].qdisc='cake'
+uci set sqm.@queue[0].script='piece_of_cake.qos'
+uci commit sqm
+/etc/init.d/sqm enable
