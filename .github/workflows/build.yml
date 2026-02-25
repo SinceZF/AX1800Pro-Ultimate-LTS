@@ -1,9 +1,9 @@
-name: 360V6-AdBlock-Pro
+name: 360V6-LTS-Pro
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 4 * * 6'
+    - cron: '0 3 * * 6'
 
 jobs:
   build:
@@ -17,39 +17,34 @@ jobs:
         sudo apt update
         sudo apt install -y build-essential clang flex g++ gawk gcc-multilib \
         g++-multilib gettext git libncurses-dev libssl-dev python3-distutils \
-        rsync unzip zlib1g-dev file wget curl
+        rsync unzip zlib1g-dev file wget curl jq
 
-    - name: Clone Source
+    - name: Clone ImmortalWrt
       run: |
         git clone https://github.com/immortalwrt/immortalwrt -b openwrt-23.05 openwrt
         cd openwrt
         ./scripts/feeds update -a
         ./scripts/feeds install -a
 
-    - name: Load AdBlock Config
+    - name: Detect Device
       run: |
-        cat > openwrt/.config <<EOF
-        CONFIG_TARGET_ipq60xx=y
-        CONFIG_TARGET_ipq60xx_generic=y
-        CONFIG_TARGET_ipq60xx_generic_DEVICE_qihoo_360v6=y
-        CONFIG_LINUX_5_15=y
+        cd openwrt
+        DEVICE=$(grep -r "360v6" target/linux/ipq60xx/image/*.mk | head -n1 | sed 's/.*DEVICE_//;s/ .*//')
+        if [ -z "$DEVICE" ]; then
+          echo "Device not found"
+          exit 1
+        fi
+        echo "DEVICE_NAME=$DEVICE" >> $GITHUB_ENV
 
-        CONFIG_PACKAGE_smartdns=y
-        CONFIG_PACKAGE_luci-app-smartdns=y
-
-        CONFIG_PACKAGE_adguardhome=y
-        CONFIG_PACKAGE_luci-app-adguardhome=y
-
-        CONFIG_PACKAGE_luci-app-firewall=y
-        CONFIG_PACKAGE_luci-app-upnp=y
-        CONFIG_PACKAGE_curl=y
-
-        CONFIG_PACKAGE_ipv6helper=y
-        CONFIG_PACKAGE_odhcp6c=y
-        EOF
-
+    - name: Load Config
+      run: |
+        cp config/360v6.config openwrt/.config
         cd openwrt
         make defconfig
+
+    - name: Add Custom Files
+      run: |
+        cp -r files openwrt/
 
     - name: Compile
       run: |
@@ -57,18 +52,45 @@ jobs:
         make download -j8
         make -j$(nproc)
 
+    - name: Locate Firmware
+      run: |
+        FILES=$(find openwrt/bin/targets/ -name "*factory.bin" -o -name "*sysupgrade.bin")
+        if [ -z "$FILES" ]; then
+          echo "No firmware found"
+          exit 1
+        fi
+        echo "FIRMWARE_FILES<<EOF" >> $GITHUB_ENV
+        echo "$FILES" >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
+
     - name: Generate Tag
       id: tag
-      run: echo "TAG=360V6-AdBlock-$(date +%Y%m%d)-${{ github.run_number }}" >> $GITHUB_OUTPUT
+      run: echo "TAG=360V6-LTS-$(date +%Y%m%d)-${{ github.run_number }}" >> $GITHUB_OUTPUT
 
     - name: Release
       if: success()
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ steps.tag.outputs.TAG }}
-        name: 360V6 AdBlock Firmware
-        files: |
-          openwrt/bin/targets/ipq60xx/generic/*factory.bin
-          openwrt/bin/targets/ipq60xx/generic/*sysupgrade.bin
+        name: 360V6 LTS Firmware
+        files: ${{ env.FIRMWARE_FILES }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Cleanup Old Releases
+      if: success()
+      run: |
+        REPO=${{ github.repository }}
+        TOKEN=${{ secrets.GITHUB_TOKEN }}
+
+        RELEASES=$(curl -s -H "Authorization: token $TOKEN" \
+        https://api.github.com/repos/$REPO/releases | jq -r '.[].id')
+
+        COUNT=0
+        for ID in $RELEASES; do
+          COUNT=$((COUNT+1))
+          if [ $COUNT -gt 5 ]; then
+            curl -X DELETE -H "Authorization: token $TOKEN" \
+            https://api.github.com/repos/$REPO/releases/$ID
+          fi
+        done
